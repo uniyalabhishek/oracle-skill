@@ -1,0 +1,7 @@
+interface:
+  display_name: "Oracle"
+  short_description: "Run Oracle CLI reviews safely"
+  default_prompt: "Use $oracle to prepare, preview, run, inspect, or recover an Oracle CLI second-model review with the right prompt, files, session tracking, and final-answer handling."
+
+policy:
+  allow_implicit_invocation: false

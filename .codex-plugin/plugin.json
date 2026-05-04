@@ -1,0 +1,11 @@
+{
+  "name": "oracle-review",
+  "version": "0.1.0",
+  "description": "Codex skill for using the @steipete/oracle CLI safely and efficiently.",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Oracle Review",
+    "shortDescription": "Run Oracle CLI reviews safely",
+    "category": "Developer Tools"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "oracle-review",
+  "description": "Claude Code skill for using the @steipete/oracle CLI safely and efficiently.",
+  "version": "0.1.0"
+}
