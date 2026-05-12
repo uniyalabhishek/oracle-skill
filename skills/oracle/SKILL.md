@@ -16,16 +16,46 @@ Oracle is a second-pass reviewer over curated context. It is not the source of t
 - Treat Oracle output as advisory. Verify every conclusion against local source before making a decision or publishing a finding.
 - Track a review by topic, prompt fingerprint, attached files/export, and output path, not by slug alone.
 - Run `oracle --version` and `oracle --help` when exact flags, models, or defaults matter.
+- Treat version-specific examples as hints, not authority. Before using any non-basic flag, confirm it exists in the installed `oracle --help` output.
 - Prefer `--slug`, not `--name`. Prefer `-p/--prompt`, not `--prompt-file`.
 - Check existing sessions before starting a long run. Do not duplicate a run because a prior one is still thinking.
 - If `oracle` is not on PATH, use `npx -y @steipete/oracle` as the command prefix.
 - Read `references/troubleshooting.md` for browser/session recovery.
 - Read `references/compatibility.md` for Codex/Claude Code install and publishing details.
 
-Verified baseline for the published package `@steipete/oracle@0.10.0`:
+## Version Resilience
 
-- npm package requires Node `>=24`.
-- Default model is `gpt-5.5-pro`.
+Oracle changes quickly. Do not hard-code behavior from this skill if the installed CLI disagrees.
+
+Always verify the live CLI before a substantive run:
+
+```bash
+oracle --version
+oracle --help
+oracle --debug-help
+oracle session --help
+oracle status --help
+```
+
+If using browser mode, also check whether these primary or advanced flags exist before adding them:
+
+- `--browser-manual-login`
+- `--browser-input-timeout`
+- `--browser-research`
+- `--browser-archive`
+- `--heartbeat`
+- `--browser-model-strategy`
+- `--browser-port`
+- `oracle status --browser-tabs`
+- `oracle session --live`
+- `oracle session --harvest`
+
+Some debug flags may be accepted even when not listed in short help. If a recipe needs such a flag, test it first with a smoke run instead of assuming support.
+
+Current durable assumptions:
+
+- Recent npm package versions require Node `>=24`; check the current `engines` field if installation fails.
+- Default model has historically been `gpt-5.5-pro`, but set `--model` explicitly when the exact model matters.
 - `--engine` is `api` or `browser`; if omitted, Oracle picks API when `OPENAI_API_KEY` is set, otherwise browser.
 - Browser engine supports GPT models through ChatGPT and Gemini models through `gemini.google.com` cookies.
 - Use API engine for Claude, Grok, Codex, `gemini-3.1-pro`, and multi-model runs.
@@ -33,6 +63,8 @@ Verified baseline for the published package `@steipete/oracle@0.10.0`:
 - `--file` accepts files, directories, globs, repeated flags, comma-separated entries, and `!pattern` excludes.
 - Default per-file cap is 1 MB unless `ORACLE_MAX_FILE_SIZE_BYTES` or `maxFileSizeBytes` in `~/.oracle/config.json` raises it.
 - Sessions live under `~/.oracle/sessions`; `ORACLE_HOME_DIR` can override the Oracle home.
+
+If a flag from an older recipe is missing, do not improvise blindly. Re-run `oracle --help`, choose the closest supported behavior, and record the version in the ledger.
 
 ## When To Use
 
@@ -146,12 +178,34 @@ oracle --engine browser \
   --file "<context-file-or-glob>"
 ```
 
+Before using browser/debug flags such as `--browser-manual-login` or `--browser-input-timeout`, confirm them in `oracle --debug-help` when they are not visible in normal `oracle --help`.
+
+For a pure ChatGPT Pro/Extended Pro pass that should remain visible in ChatGPT, prefer:
+
+```bash
+oracle --engine browser \
+  --model gpt-5.5-pro \
+  --browser-research off \
+  --browser-archive never \
+  --browser-manual-login \
+  --browser-model-strategy select \
+  --heartbeat 0 \
+  --slug "<topic-slug>" \
+  --files-report \
+  --write-output "<output.md>" \
+  -p "<review prompt>" \
+  --file "<context-file-or-glob>"
+```
+
+Use `--browser-research deep` only when the user explicitly asks for ChatGPT Deep Research. Do not choose Deep Research merely because the prompt says "deep", "in-depth", or "research" unless the desired product is specifically Deep Research.
+
+Use `--browser-archive never` when the user may want to inspect the conversation later in ChatGPT. If the run was archived, look in ChatGPT settings under archived chats, but keep the repo-local `--write-output` file as canonical.
+
 First login or post-failure smoke:
 
 ```bash
 oracle --engine browser \
   --browser-manual-login \
-  --browser-keep-browser \
   --browser-input-timeout 120000 \
   --browser-model-strategy select \
   --slug "oracle-browser-smoke" \
@@ -161,11 +215,13 @@ oracle --engine browser \
 Useful browser flags:
 
 - `--browser-manual-login`: skip cookie copy and reuse Oracle's persistent automation profile.
-- `--browser-keep-browser`: leave Chrome open after completion; useful for first login/debugging.
+- `--browser-keep-browser`: when supported, leave Chrome open after completion; useful for first login/debugging. If it is not shown in help, test with a smoke run before relying on it.
+- `--browser-research off|deep`: choose normal ChatGPT vs Deep Research when supported.
+- `--browser-archive auto|always|never`: decide whether completed browser conversations are archived after local artifacts are saved.
+- `--heartbeat 0`: suppress periodic CLI heartbeat output and let the process return on completion/error.
 - `--browser-model-strategy select|current|ignore`: choose whether to switch, keep, or skip ChatGPT model selection.
 - `--browser-attachments auto|never|always`: choose inline paste vs uploaded files.
 - `--browser-bundle-files`: upload all attachments as one bundle.
-- `--browser-auto-reattach-delay`, `--browser-auto-reattach-interval`, `--browser-auto-reattach-timeout`: keep checking long browser runs after timeouts.
 - `--browser-port <port>`: pin the Chrome DevTools port for repeatable debugging.
 - `--remote-host <host:port> --remote-token <token>`: delegate browser automation to `oracle serve` on a signed-in machine.
 
@@ -192,9 +248,17 @@ oracle status --hours 24 --limit 50
 Safe passive checks while a browser run is active:
 
 - `oracle status --hours <n> --limit <n>` without a session id
+- `oracle status --hours <n> --limit <n> --browser-tabs` when supported, to see live tab state without attaching
 - `oracle session --path <slug-or-id>` to locate stored files without attaching
 - `~/.oracle/sessions/<slug>/meta.json`
 - `~/.oracle/sessions/<slug>/output.log`
+
+Efficient waiting:
+
+- Prefer launching long runs with `--heartbeat 0` so the original command blocks quietly until completion/error.
+- If browser mode appears stuck, run `oracle status --browser-tabs` instead of repeatedly polling the original process.
+- Use `oracle session --live --write-output <path> <slug-or-id>` only when you intentionally want to watch/harvest the live browser tab. Classify the result as `partial` unless it contains the substantive final answer.
+- A live watcher may stall or capture only an opening sentence while the original Oracle process later completes correctly. Do not replace the canonical `--write-output` file with a partial live harvest.
 
 Do not use these as passive polls while the original run is active:
 
@@ -220,6 +284,8 @@ For every substantive Oracle review, record:
 - topic
 - slug/session id
 - model and engine
+- browser-visible model when available
+- research mode and archive mode when browser flags are used
 - prompt fingerprint
 - attached files/export paths
 - output path

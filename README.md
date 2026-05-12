@@ -7,8 +7,12 @@ The skill focuses on the durable workflow:
 - curate the right files before asking Oracle
 - preview with `--dry-run summary --files-report`
 - choose browser vs API intentionally
+- verify live CLI flags before relying on version-specific recipes
 - avoid duplicate long-running sessions
+- wait efficiently with quiet heartbeats and browser-tab status checks
 - recover partial browser output safely
+- distinguish normal Pro/Extended Pro runs from ChatGPT Deep Research
+- choose archive behavior explicitly when the ChatGPT conversation must remain visible
 - verify Oracle conclusions against local source
 
 ## Layout
@@ -56,7 +60,7 @@ Invoke explicitly:
 Claude Code can use GPT-5.5 Pro by following the skill's Oracle CLI recipe:
 
 ```bash
-oracle --engine browser --model gpt-5.5-pro ...
+oracle --engine browser --model gpt-5.5-pro --browser-research off --browser-archive never ...
 ```
 
 ## Validate

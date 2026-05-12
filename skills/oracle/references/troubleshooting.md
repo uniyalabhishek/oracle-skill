@@ -13,6 +13,8 @@ oracle session --help
 oracle status --help
 ```
 
+When a recipe mentions a newer browser/session flag, verify it in help first. Known useful flags in recent CLI versions include `--browser-research`, `--browser-archive`, `--heartbeat`, `oracle status --browser-tabs`, `oracle session --live`, and `oracle session --harvest`, but availability can change by version.
+
 If `oracle` is missing:
 
 ```bash
@@ -40,7 +42,7 @@ Common signatures:
 - `connect ECONNREFUSED 127.0.0.1:<port>`
 - unsupported option errors such as `--name` or `--prompt-file`
 - missing local `oracle` binary when `npx -y @steipete/oracle` would work
-- Node install/runtime errors; published `@steipete/oracle@0.10.0` reports Node `>=24`
+- Node install/runtime errors; check the current package's `engines` field and installed Node version before debugging Oracle itself
 
 Handling:
 
@@ -67,6 +69,8 @@ Handling:
 3. Recover the browser-visible answer if possible.
 4. Save the recovered answer as the canonical output.
 5. Verify the recovered answer is substantive before using it.
+
+Special case: `oracle session --live --write-output ...` can write only the first visible snippet if the browser tab stalls or if the model continues after the live watcher exits. Do not treat this file as canonical unless it clearly contains the final substantive answer. Prefer the original run's `--write-output` file when the original process later completes.
 
 ## Stale Running Session
 
@@ -101,7 +105,6 @@ First login or post-failure smoke:
 ```bash
 oracle --engine browser \
   --browser-manual-login \
-  --browser-keep-browser \
   --browser-input-timeout 120000 \
   --browser-model-strategy select \
   --slug "oracle-browser-smoke" \
@@ -113,8 +116,11 @@ Stable review shape:
 ```bash
 oracle --engine browser \
   --model gpt-5.5-pro \
+  --browser-research off \
+  --browser-archive never \
   --browser-manual-login \
   --browser-model-strategy select \
+  --heartbeat 0 \
   --slug "<topic-slug>" \
   --files-report \
   --write-output "<output.md>" \
@@ -122,18 +128,47 @@ oracle --engine browser \
   --file "<context>"
 ```
 
-Long browser runs:
+Use `--browser-research off` for ordinary ChatGPT Pro/Extended Pro review. Use `--browser-research deep` only when the user explicitly requests Deep Research as the product.
+
+Use `--browser-archive never` when the user may want to find the conversation in ChatGPT later. With archive `auto`, Oracle may archive the conversation after saving local artifacts; the local `--write-output` remains the canonical copy.
+
+Long browser runs should generally use the stable review shape above with `--heartbeat 0`.
+
+If the installed CLI exposes explicit reattach or background flags, you may use them, but verify them in `oracle --help` first. Do not copy old reattach flags from memory.
+
+Quiet long-run shape:
 
 ```bash
 oracle --engine browser \
   --model gpt-5.5-pro \
   --browser-manual-login \
-  --browser-auto-reattach-delay 30s \
-  --browser-auto-reattach-interval 2m \
-  --browser-auto-reattach-timeout 2m \
+  --browser-model-strategy select \
+  --browser-research off \
+  --browser-archive never \
+  --heartbeat 0 \
+  --slug "<topic-slug>" \
+  --write-output "<output.md>" \
   -p "<review prompt>" \
   --file "<context>"
 ```
+
+Prefer `--heartbeat 0` on long runs when the user does not need progress logs. It avoids noisy 30-second heartbeat output while still letting the original process exit on completion or error.
+
+While a browser run is active, the safest status check is:
+
+```bash
+oracle status --hours 24 --limit 20 --browser-tabs
+```
+
+This shows live ChatGPT tab state when supported without attaching to the stored session.
+
+When you intentionally need a live browser-tab harvest:
+
+```bash
+oracle session --live --write-output "<live-output.md>" <slug-or-id>
+```
+
+Classify live-harvest output carefully. It may be `partial` even if it contains non-empty text.
 
 Remote signed-in browser host:
 
@@ -157,6 +192,8 @@ Observed behavior:
 - an empty DevTools tab list after completion is not automatically a failed keep-browser run
 
 If you need final text from the tab, capture it before completion or recover it from saved session metadata.
+
+Keeping the browser open is separate from archive behavior. Use `--browser-archive never` if preserving the ChatGPT conversation in the sidebar/history matters.
 
 ## Browser-Visible Recovery
 
@@ -213,6 +250,8 @@ If the same topic/prompt/context is already running:
   - `<failed-bootstrap|partial|final|stale|wrong-topic>`
 - Canonical answer:
   - `<path or recovery note>`
+- Browser flags:
+  - `research=<off|deep|unknown>, archive=<auto|always|never|unknown>, heartbeat=<value|unknown>`
 - Source verification:
   - `<what was confirmed locally after Oracle>`
 ```

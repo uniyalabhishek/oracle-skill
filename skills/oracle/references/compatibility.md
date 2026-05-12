@@ -67,7 +67,7 @@ Plugin invocation is namespaced by plugin name:
 Claude Code can use GPT-5.5 Pro through Oracle by running:
 
 ```bash
-oracle --engine browser --model gpt-5.5-pro ...
+oracle --engine browser --model gpt-5.5-pro --browser-research off --browser-archive never ...
 ```
 
 or, when API spend is intended:
